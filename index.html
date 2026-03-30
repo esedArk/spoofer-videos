@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Aurora - Upload Video</title>
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#0e0e0e",
+            primary: "#ff8aa5",
+            secondary: "#cb80fe",
+            tertiary: "#ffc47b",
+            "surface-container": "#1a1a1a",
+            "surface-container-high": "#20201f",
+            "surface-container-highest": "#262626",
+            "on-surface": "#ffffff",
+            "on-surface-variant": "#adaaaa"
+          },
+          fontFamily: {
+            headline: ["Plus Jakarta Sans"],
+            body: ["Be Vietnam Pro"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    }
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.06); }
+    }
+    @keyframes progress-loading {
+      0% { width: 0%; }
+      20% { width: 14%; }
+      45% { width: 52%; }
+      70% { width: 78%; }
+      100% { width: 92%; }
+    }
+    @keyframes scan {
+      0% { top: 0%; opacity: 0; }
+      45% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .animate-pulse-slow { animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .animate-progress { animation: progress-loading 6s ease-out forwards; }
+    .scan-line { animation: scan 2.5s ease-in-out infinite; }
+  </style>
+</head>
+
+<body class="bg-background text-on-surface font-body min-h-screen antialiased">
+  <header class="fixed top-0 inset-x-0 z-50 border-b border-white/10 bg-background/90 backdrop-blur">
+    <div class="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between gap-3">
+      <p class="font-headline font-extrabold tracking-wide text-sm md:text-base">Video Variants</p>
+      <div class="flex items-center gap-2">
+        <button id="goHomeBtn" class="rounded-lg px-3 py-2 text-xs font-semibold bg-surface-container-high text-white hover:bg-surface-container-highest transition">
+          Home
+        </button>
+        <button id="selectAnotherBtn" class="rounded-lg px-3 py-2 text-xs font-semibold bg-secondary/20 text-secondary hover:bg-secondary/30 transition">
+          Select another video
+        </button>
+        <button id="uploadAnotherBtn" class="rounded-lg px-3 py-2 text-xs font-semibold bg-gradient-to-r from-primary to-secondary text-white">
+          Upload another video
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="uploadView" class="min-h-screen flex items-center justify-center px-6 pt-24">
+    <section class="w-full max-w-3xl space-y-8">
+      <div class="text-center space-y-4">
+        <h1 class="text-4xl md:text-6xl font-headline font-extrabold leading-tight">
+          Upload Your <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Video</span>
+        </h1>
+        <p class="text-on-surface-variant text-lg">
+          Select the original video and click Upload to generate 2 variants.
+        </p>
+      </div>
+
+      <div class="relative group">
+        <div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-2xl blur opacity-25 group-focus-within:opacity-50 transition"></div>
+        <div class="relative bg-surface-container rounded-2xl p-3 flex flex-col md:flex-row gap-3">
+          <input
+            id="videoFile"
+            type="file"
+            accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv"
+            class="w-full bg-surface-container-highest rounded-xl py-3 px-4 text-white file:mr-4 file:rounded-lg file:border-0 file:bg-secondary/20 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-secondary hover:file:bg-secondary/30"
+          />
+          <button
+            id="loadBtn"
+            class="bg-gradient-to-br from-primary to-secondary text-white font-headline font-bold py-4 px-8 rounded-xl active:scale-95 duration-200"
+          >
+            Upload
+          </button>
+        </div>
+      </div>
+
+      <p id="statusMsg" class="text-center text-sm text-on-surface-variant"></p>
+
+      <section class="pt-2">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-headline text-sm uppercase tracking-widest text-secondary">Latest Processing Jobs</h3>
+          <button id="refreshRecentBtn" class="text-xs text-on-surface-variant hover:text-white transition">Refresh</button>
+        </div>
+        <div id="recentJobs" class="space-y-2"></div>
+      </section>
+    </section>
+  </main>
+
+  <section id="loadingView" class="hidden relative min-h-screen flex-col items-center justify-center px-6 pt-24 overflow-hidden">
+    <div class="absolute inset-0 z-0">
+      <div class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+      <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/15 rounded-full blur-[100px] animate-pulse-slow" style="animation-delay:2s"></div>
+    </div>
+
+    <div class="relative z-10 w-full max-w-xl flex flex-col items-center">
+      <div class="relative mb-12">
+        <div class="w-48 h-72 md:w-56 md:h-80 bg-surface-container rounded-lg rounded-tl-[2rem] rounded-br-[2rem] overflow-hidden shadow-2xl rotate-[-3deg]">
+          <img
+            class="w-full h-full object-cover opacity-60"
+            alt="Analyzing Video"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBs2QNqrWCGgxpRx444Ebke5Ks5UGw8co7wknxt8UA6Ss7YUiTUql3jRGPI4g1eXA834L1GcOxtChXv7E48K-Brmnnfn5Re2Yy46ZPvfg2XYLl-A-ms9xUbiO1JhuBU7m-JlR0NfGutk9Czfo1c6-ySUkjC7j3Z6BaDqlRBaJu1gZ6L3G9uHo2aERC0NAs3jleI8oejaA_NvXRcFU1-kkkQkB5DEX-CNyOYLTsisRRBPx2bpj87HNR03Ddl0Di6LAjULbho0ow_uQ"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+          <div class="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-secondary to-transparent blur-sm scan-line"></div>
+        </div>
+        <div class="absolute inset-0 w-48 h-72 md:w-56 md:h-80 border border-secondary/20 rounded-lg rounded-tl-[2rem] rounded-br-[2rem] translate-x-4 translate-y-4 -z-10 rotate-[2deg]"></div>
+      </div>
+
+      <div class="text-center space-y-8 w-full">
+        <div class="space-y-3">
+          <h2 id="loadingTitle" class="font-headline text-3xl md:text-4xl font-extrabold tracking-tighter">Analyzing your video...</h2>
+          <p id="loadingSubtitle" class="text-on-surface-variant text-sm md:text-base max-w-xs mx-auto">
+            Extracting visual patterns to prepare variants.
+          </p>
+        </div>
+
+        <div class="w-full max-w-md mx-auto space-y-4">
+          <div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-primary to-secondary animate-progress shadow-[0_0_12px_rgba(203,128,254,0.4)]"></div>
+          </div>
+          <div class="flex justify-between items-center px-1">
+            <span id="phaseLabel" class="text-xs uppercase tracking-widest text-secondary font-bold">Analyzing</span>
+            <span id="etaLabel" class="text-xs text-neutral-500 tabular-nums">IN PROGRESS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="resultView" class="hidden min-h-screen px-6 py-16 pt-28">
+    <div class="max-w-[1400px] mx-auto space-y-10">
+      <header class="space-y-3">
+        <p class="text-secondary font-headline font-bold uppercase tracking-widest text-xs">Campaign Generation</p>
+        <h2 class="text-3xl md:text-5xl font-headline font-extrabold tracking-tight">
+          Creative <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Alternatives</span>
+        </h2>
+        <p class="text-on-surface-variant max-w-2xl">
+          We generated two video variants ready for review.
+        </p>
+      </header>
+      <div id="resultCards" class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6"></div>
+    </div>
+  </section>
+
+  <script>
+    const uploadView = document.getElementById("uploadView");
+    const loadingView = document.getElementById("loadingView");
+    const resultView = document.getElementById("resultView");
+    const resultCards = document.getElementById("resultCards");
+    const recentJobs = document.getElementById("recentJobs");
+    const refreshRecentBtn = document.getElementById("refreshRecentBtn");
+    const videoFile = document.getElementById("videoFile");
+    const loadBtn = document.getElementById("loadBtn");
+    const statusMsg = document.getElementById("statusMsg");
+    const progressBar = document.getElementById("progressBar");
+    const phaseLabel = document.getElementById("phaseLabel");
+    const etaLabel = document.getElementById("etaLabel");
+    const loadingTitle = document.getElementById("loadingTitle");
+    const loadingSubtitle = document.getElementById("loadingSubtitle");
+    const goHomeBtn = document.getElementById("goHomeBtn");
+    const selectAnotherBtn = document.getElementById("selectAnotherBtn");
+    const uploadAnotherBtn = document.getElementById("uploadAnotherBtn");
+    let pollTimer = null;
+    let currentJobId = null;
+
+    function shuffleArray(values) {
+      const arr = [...values];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function renderResultCards(outputs) {
+      if (!Array.isArray(outputs) || outputs.length === 0) {
+        resultCards.innerHTML = "<p class='text-on-surface-variant'>No variants were generated yet.</p>";
+        return;
+      }
+
+      const randomized = shuffleArray(outputs);
+      resultCards.innerHTML = randomized.map((item, idx) => `
+        <article class="group w-full max-w-[340px] sm:max-w-none mx-auto bg-surface-container rounded-2xl overflow-hidden shadow-xl">
+          <div class="aspect-[9/16] relative overflow-hidden bg-black">
+            <video class="w-full h-full object-cover" src="${item.url}" controls playsinline preload="metadata"></video>
+            <div class="absolute top-4 left-4 bg-secondary/20 border border-secondary/20 px-3 py-1 rounded-full text-xs font-bold text-secondary uppercase tracking-wider">Variant ${idx + 1}</div>
+          </div>
+          <div class="p-5">
+            <h3 class="font-headline text-xl font-bold">${item.name || `variant_${idx + 1}`}</h3>
+            <p class="mt-2 text-sm text-on-surface-variant">Video generated with the FFmpeg pipeline.</p>
+            <div class="mt-3 bg-surface-container-high rounded-lg p-3">
+              <p class="text-[11px] uppercase tracking-widest text-secondary font-bold mb-2">Applied Changes</p>
+              <ul class="space-y-1">
+                ${
+                  (Array.isArray(item.changes) && item.changes.length > 0)
+                    ? item.changes.map((line) => `<li class="text-xs text-on-surface-variant">${line}</li>`).join("")
+                    : "<li class='text-xs text-on-surface-variant'>Not available for this job.</li>"
+                }
+              </ul>
+            </div>
+            <a
+              href="${item.url}"
+              download
+              class="mt-4 inline-flex w-full justify-center rounded-xl bg-gradient-to-br from-primary to-secondary px-4 py-3 text-sm font-headline font-bold text-white active:scale-95 transition"
+            >
+              DOWNLOAD
+            </a>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function showResult(outputs = []) {
+      renderResultCards(outputs);
+      loadingView.classList.add("hidden");
+      loadingView.classList.remove("flex");
+      uploadView.classList.add("hidden");
+      resultView.classList.remove("hidden");
+    }
+
+    function resetToUploadView() {
+      resultView.classList.add("hidden");
+      loadingView.classList.add("hidden");
+      loadingView.classList.remove("flex");
+      uploadView.classList.remove("hidden");
+      loadBtn.disabled = false;
+      loadBtn.textContent = "Upload";
+      statusMsg.textContent = "";
+      currentJobId = null;
+      if (pollTimer) clearInterval(pollTimer);
+    }
+
+    function goToStart(selectFile = false) {
+      resetToUploadView();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (selectFile) {
+        videoFile.value = "";
+        setTimeout(() => videoFile.click(), 120);
+      }
+    }
+
+    async function openJob(jobId) {
+      try {
+        const response = await fetch(`/api/jobs/${jobId}`);
+        const data = await response.json();
+        if (!data.ok) return;
+        const job = data.job;
+        currentJobId = jobId;
+
+        if (job.status === "done") {
+          showResult(job.outputs || []);
+          return;
+        }
+
+        resultView.classList.add("hidden");
+        uploadView.classList.add("hidden");
+        loadingView.classList.remove("hidden");
+        loadingView.classList.add("flex");
+        loadingTitle.textContent = "Restoring progress...";
+        loadingSubtitle.textContent = "Loading the current processing state.";
+        etaLabel.textContent = "IN PROGRESS";
+        phaseLabel.textContent = job.phase || "Processing";
+        pollJob(jobId);
+      } catch (_) {}
+    }
+
+    async function fetchRecentJobs() {
+      try {
+        const response = await fetch("/api/jobs/recent?limit=8");
+        const data = await response.json();
+        if (!data.ok) return;
+
+        if (data.jobs.length === 0) {
+          recentJobs.innerHTML = "<p class='text-xs text-on-surface-variant'>No jobs in queue yet.</p>";
+          return;
+        }
+
+        recentJobs.innerHTML = data.jobs.map((job) => `
+          <div class="flex items-center justify-between bg-surface-container rounded-xl px-4 py-3 gap-3">
+            <div class="min-w-0">
+              <p class="text-sm text-white truncate">${job.reel_url}</p>
+              <p class="text-xs text-on-surface-variant">#${job.id} · ${job.phase}</p>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="text-[11px] uppercase tracking-wider ${job.status === "done" ? "text-emerald-300" : job.status === "error" ? "text-rose-300" : "text-secondary"}">${job.status}</span>
+              <button
+                class="open-job-btn rounded-lg px-3 py-1 text-xs font-semibold bg-surface-container-high text-white hover:bg-surface-container-highest transition"
+                data-job-id="${job.id}"
+              >
+                ${job.status === "done" ? "View" : "Resume"}
+              </button>
+              <button
+                class="delete-job-btn rounded-lg px-3 py-1 text-xs font-semibold bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 transition"
+                data-job-id="${job.id}"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        `).join("");
+      } catch (_) {
+        recentJobs.innerHTML = "<p class='text-xs text-rose-300'>Could not load recent activity.</p>";
+      }
+    }
+
+    async function pollJob(jobId) {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/jobs/${jobId}`);
+          const data = await response.json();
+          if (!data.ok) return;
+
+          const job = data.job;
+          phaseLabel.textContent = job.phase;
+
+          if (job.status === "analyzing") {
+            loadingTitle.textContent = "Analyzing your video...";
+            loadingSubtitle.textContent = "Extracting visual patterns to prepare variants.";
+            etaLabel.textContent = "IN PROGRESS";
+          } else if (job.status === "creating") {
+            loadingTitle.textContent = "Creating new videos...";
+            loadingSubtitle.textContent = "We are generating 2 variants with FFmpeg.";
+            etaLabel.textContent = "IN PROGRESS";
+          } else if (job.status === "done") {
+            clearInterval(pollTimer);
+            showResult(job.outputs || []);
+            fetchRecentJobs();
+          } else if (job.status === "error") {
+            clearInterval(pollTimer);
+            loadingTitle.textContent = "Processing error";
+            loadingSubtitle.textContent = job.error_message || "Could not generate the video.";
+            etaLabel.textContent = "RETRY";
+          }
+        } catch (_) {}
+      }, 1500);
+    }
+
+    function startLoadingFlow(jobId) {
+      currentJobId = jobId;
+      uploadView.classList.add("hidden");
+      loadingView.classList.remove("hidden");
+      loadingView.classList.add("flex");
+      progressBar.classList.remove("animate-progress");
+      void progressBar.offsetWidth;
+      progressBar.classList.add("animate-progress");
+      pollJob(jobId);
+    }
+
+    loadBtn.addEventListener("click", async () => {
+      const file = videoFile.files && videoFile.files[0];
+      if (!file) {
+        statusMsg.textContent = "Please select a video first.";
+        return;
+      }
+
+      const validExt = [".mp4", ".mov", ".webm", ".mkv"].some((ext) =>
+        file.name.toLowerCase().endsWith(ext)
+      );
+      if (!validExt) {
+        statusMsg.textContent = "Unsupported format. Use MP4, MOV, WEBM, or MKV.";
+        return;
+      }
+
+      statusMsg.textContent = "";
+      loadBtn.disabled = true;
+      loadBtn.textContent = "Uploading...";
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/jobs/upload", {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          throw new Error(data.error || "Could not create job");
+        }
+        startLoadingFlow(data.job.id);
+        fetchRecentJobs();
+      } catch (_) {
+        loadBtn.disabled = false;
+        loadBtn.textContent = "Upload";
+        statusMsg.textContent = "Could not upload file. Check backend/RabbitMQ.";
+      }
+    });
+
+    refreshRecentBtn.addEventListener("click", fetchRecentJobs);
+    goHomeBtn.addEventListener("click", () => goToStart(false));
+    uploadAnotherBtn.addEventListener("click", () => goToStart(false));
+    selectAnotherBtn.addEventListener("click", () => goToStart(true));
+    recentJobs.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const btn = target.closest(".open-job-btn");
+      if (btn) {
+        const id = Number(btn.getAttribute("data-job-id"));
+        if (!Number.isFinite(id) || id <= 0) return;
+        openJob(id);
+        return;
+      }
+
+      const delBtn = target.closest(".delete-job-btn");
+      if (!delBtn) return;
+      const id = Number(delBtn.getAttribute("data-job-id"));
+      if (!Number.isFinite(id) || id <= 0) return;
+      if (!window.confirm(`Delete video #${id}?`)) return;
+
+      fetch(`/api/jobs/${id}`, { method: "DELETE" })
+        .then((res) => res.json().then((data) => ({ status: res.status, data })))
+        .then(({ data }) => {
+          if (!data.ok) {
+            const msg = data.error || "Could not delete.";
+            statusMsg.textContent = msg;
+            return;
+          }
+          if (currentJobId === id) {
+            resetToUploadView();
+          }
+          fetchRecentJobs();
+        })
+        .catch(() => {
+          statusMsg.textContent = "Could not delete the video.";
+        });
+    });
+    fetchRecentJobs();
+    setInterval(fetchRecentJobs, 6000);
+  </script>
+</body>
+</html>
